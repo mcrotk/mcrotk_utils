@@ -8,7 +8,9 @@ These are the functions most worth a look, each linked to its examples:
 
 - [`label_bars`](src/mcrotk_utils/plotting_utils/README.md#a-grid-of-plots) labels the bars of a plot drawn by `matplotlib`, `pandas`, or `seaborn` with their values, their shares of a total, or their changes from other bars (week over week, or test against control), keeping the labels clear of error bars. One call labels a whole grid of plots, with one number format across all of them:
 
-  <img src="src/mcrotk_utils/plotting_utils/images/grid_by_region.png" width="500" alt="Three subplots, one per region, each with control and test bars for three weeks, the test bars labelled with their difference from control">
+  <p align="center">
+    <img src="src/mcrotk_utils/plotting_utils/images/grid_by_region.png" width="500" alt="Three subplots, one per region, each with control and test bars for three weeks, the test bars labelled with their difference from control">
+  </p>
 
 - [`bisect_to_target`](src/mcrotk_utils/misc_utils/README.md#bisection-over-integers) finds where a monotonic function crosses a target value. Unlike `scipy`'s root finders, it can stop once the function's values are close enough, carry an expensive result (such as a fitted model) along so nothing is recomputed, return the points on both sides of the target, and search over integers, e.g. for the smallest sample size giving a test enough power.
 - [`sort_with_directions`](src/mcrotk_utils/misc_utils/README.md#sorting-in-different-directions) sorts by several keys, each ascending or descending on its own, for keys of any type, such as dates or strings, which can't be negated to reverse them.
