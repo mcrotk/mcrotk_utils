@@ -1,6 +1,6 @@
 # mcrotk-utils
 
-Utilities for general Python, `numpy`, `pandas`, sparse matrices, statistics, and plotting, one module per topic. The package isn't released on PyPI; install it from GitHub (see below). When part of it grows big and general enough to release, that part moves out into its own package (as the caching code did with [`mcrotk-cache-utils`](https://pypi.org/project/mcrotk-cache-utils/)) and is deleted from here. Released packages aren't re-exported from here: import them under their own names.
+Utilities for general Python, `numpy`, `pandas`, sparse matrices, statistics, and plotting, one module per topic. The package isn't published on PyPI; install it from GitHub (see below). When part of it grows big and general enough to release, that part moves out into its own package (as the caching code did with [`mcrotk-cache-utils`](https://pypi.org/project/mcrotk-cache-utils/)) and is deleted from here. Released packages aren't re-exported from here: import them under their own names.
 
 The package is shared as it is, without promises of stability: its interfaces can change between versions, so a project that depends on it may want to pin a tagged version (see below).
 
