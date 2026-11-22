@@ -6,17 +6,16 @@ Helpers for data analysis and simulation in Python: general utilities, `numpy` a
 
 These are the functions most worth a look, each linked to its examples:
 
-- [`label_bars`](src/mcrotk_utils/plotting_utils/README.md#a-grid-of-plots) labels the bars of a plot drawn by `matplotlib`, `pandas`, or `seaborn` with their values, their shares of a total, or their changes from other bars (week over week, or test against control), keeping the labels clear of error bars. One call labels a whole grid of plots, with one number format across all of them:
-
-  <p align="center">
-    <img src="src/mcrotk_utils/plotting_utils/images/grid_by_region.png" width="500" alt="Three subplots, one per region, each with control and test bars for three weeks, the test bars labelled with their difference from control">
-  </p>
-
 - [`bisect_to_target`](src/mcrotk_utils/misc_utils/README.md#bisection-over-integers) finds where a monotonic function crosses a target value. Unlike `scipy`'s root finders, it can stop once the function's values are close enough, carry an expensive result (such as a fitted model) along so nothing is recomputed, return the points on both sides of the target, and search over integers, e.g. for the smallest sample size giving a test enough power.
-- [`sort_with_directions`](src/mcrotk_utils/misc_utils/README.md#sorting-in-different-directions) sorts by several keys, each ascending or descending on its own, for keys of any type, such as dates or strings, which can't be negated to reverse them.
+- [`sort_with_directions`](src/mcrotk_utils/misc_utils/README.md#sorting-in-different-directions) sorts by several keys, where ascending or descending can be set separately for each key. It works for keys of any type that can be compared, including dates and strings, which can't simply be negated to reverse their order.
 - [`parallel_map_with_rngs`](src/mcrotk_utils/multiprocessing_utils/README.md#a-parallel-map-with-random-generators) runs a function in parallel, giving each call its own random generator spawned from one seed, so that the results don't depend on the number of workers or on how the calls are split among them.
-- [`merge_with_preferences`](src/mcrotk_utils/pandas_utils/README.md#merge_with_preferences) merges two DataFrames on their indexes, turning each pair of shared columns you choose into a single column: rows in both DataFrames take the value from the side you prefer for that column, and rows in only one take that one's value.
+- [`merge_with_preferences`](src/mcrotk_utils/pandas_utils/README.md#merge_with_preferences) merges two DataFrames on their indexes, allowing you to state which DataFrame's value to prioritize for any shared columns with values in both.
+- [`label_bars`](src/mcrotk_utils/plotting_utils/README.md#a-grid-of-plots) labels the bars of a plot drawn by `matplotlib`, `pandas`, or `seaborn` with their values, their shares of a total, or their changes from other bars (week over week, or test against control), keeping the labels clear of error bars. One call labels a whole grid of plots, with one number format across all of them:
+  <p align="center">
+    <img src="src/mcrotk_utils/plotting_utils/images/grid_by_region.png" width="600" alt="Three subplots, one per region, each with control and test bars for three weeks, the test bars labelled with their difference from control">
+  </p>
 - [`p_value_from_empirical_dist`](src/mcrotk_utils/stats_utils/README.md#a-permutation-test) gives the p-value of an observed statistic from an empirical null distribution, such as the statistic recomputed under random re-assignments in a permutation test, for one- or two-sided alternatives.
+- [`random_covariance_matrix`](src/mcrotk_utils/stats_utils/README.md#random-covariance-matrices) generates random covariance matrices, with given eigenvalues, with given variances, or both at once, or with them drawn at random.
 
 ## Modules
 
