@@ -36,7 +36,7 @@ The package has one module per topic, each with its own README listing what it c
 The package needs Python 3.12 or later. It isn't published on PyPI, so it's installed from GitHub, with the extras for the modules you'll use. With pip, for a tagged version:
 
 ```sh
-pip install "mcrotk-utils[numpy,pandas] @ git+https://github.com/mcrotk/mcrotk_utils@v0.6.0"
+pip install "mcrotk-utils[numpy,pandas] @ git+https://github.com/mcrotk/mcrotk_utils@v0.7.0"
 ```
 
 The repository's [tags](https://github.com/mcrotk/mcrotk_utils/tags) list the versions; in a clone, `git tag -l -n99` also shows what each version adds.
@@ -51,7 +51,7 @@ dependencies = [
 
 [tool.uv.sources]
 # one of:
-mcrotk-utils = { git = "https://github.com/mcrotk/mcrotk_utils", tag = "v0.6.0" }  # a tagged version
+mcrotk-utils = { git = "https://github.com/mcrotk/mcrotk_utils", tag = "v0.7.0" }  # a tagged version
 # mcrotk-utils = { git = "https://github.com/mcrotk/mcrotk_utils" }  # the latest commit on the default branch
 # mcrotk-utils = { path = "../mcrotk_utils", editable = true }  # a local checkout, relative to the project
 ```
@@ -62,7 +62,7 @@ The options differ in when the project picks up changes:
 - **The latest commit:** `uv lock` records the commit that was latest at the time in the project's `uv.lock`, and the project stays on it until `uv lock --upgrade-package mcrotk-utils` moves it to the latest again. This includes changes made since the last tagged version.
 - **A local checkout:** changes in the checkout show up immediately.
 
-uv can write these entries for you. `uv add "mcrotk-utils[numpy] @ git+https://github.com/mcrotk/mcrotk_utils" --tag v0.6.0` writes the first form, and leaving out `--tag` writes the second. `uv add --editable <path to the checkout> --extra numpy` writes the third. More extras can be listed as `[numpy,pandas]`, or with more `--extra` options.
+uv can write these entries for you. `uv add "mcrotk-utils[numpy] @ git+https://github.com/mcrotk/mcrotk_utils" --tag v0.7.0` writes the first form, and leaving out `--tag` writes the second. `uv add --editable <path to the checkout> --extra numpy` writes the third. More extras can be listed as `[numpy,pandas]`, or with more `--extra` options.
 
 ## Scope and stability
 

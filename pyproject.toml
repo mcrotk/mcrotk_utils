@@ -1,6 +1,6 @@
 [project]
 name = "mcrotk-utils"
-version = "0.6.0"
+version = "0.7.0"
 description = "Utilities for general Python, NumPy, pandas, sparse matrices, statistics and plotting, one module per topic."
 readme = "README.md"
 license = "MIT"
