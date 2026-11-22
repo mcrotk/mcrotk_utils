@@ -27,8 +27,9 @@ SUBPACKAGES = sorted(path.parent.name for path in PACKAGE_DIR.glob("*/__init__.p
 # A fenced block of examples: ```pycon, its lines, and the closing ```
 _PYCON_BLOCK = re.compile(r"^```pycon\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 
-# An image in Markdown, ![description](path), capturing the path
-_IMAGE_LINK = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+# An image, in Markdown, ![description](path), or as an HTML tag, <img src="path" ...> (which can set a size),
+# capturing the path in one group or the other
+_IMAGE = re.compile(r'!\[[^\]]*\]\(([^)\s]+)\)|<img\s[^>]*\bsrc="([^"]+)"')
 
 
 def readme_of(subpackage):
@@ -41,6 +42,11 @@ ALL_READMES = [PACKAGE_README] + [readme_of(name) for name in SUBPACKAGES]
 
 # A link to a section of a README: [text](path/README.md#anchor), capturing the path and the anchor
 _SECTION_LINK = re.compile(r"\]\(([^)#\s]*README\.md)#([^)\s]+)\)")
+
+
+def images_shown(markdown):
+    """Return the paths of the images ``markdown`` shows, in Markdown or as ``<img>`` tags, in order."""
+    return [markdown_path or tag_path for markdown_path, tag_path in _IMAGE.findall(markdown)]
 
 
 def heading_anchors(markdown):
@@ -155,7 +161,7 @@ def test_a_wrong_output_is_reported(tmp_path):
 @pytest.mark.parametrize("readme", ALL_READMES, ids=lambda path: path.parent.name)
 def test_every_image_shown_exists(readme):
     """Every image a README shows is a file in the repository, by its path relative to the README."""
-    missing = [link for link in _IMAGE_LINK.findall(readme.read_text()) if not (readme.parent / link).is_file()]
+    missing = [link for link in images_shown(readme.read_text()) if not (readme.parent / link).is_file()]
     assert not missing, f"{readme} shows images that don't exist: {missing}"
 
 
@@ -163,7 +169,7 @@ def test_every_image_shown_exists(readme):
 def test_every_image_shown_is_drawn_by_an_example(subpackage):
     """Every image a README shows follows an example the script finds, so none is left out of redrawing."""
     readme = readme_of(subpackage)
-    shown = _IMAGE_LINK.findall(readme.read_text())
+    shown = images_shown(readme.read_text())
     drawn = [f"images/{example.image_name}" for example in images_script().image_examples(readme)]
     assert drawn == shown
 
@@ -210,3 +216,9 @@ def test_the_package_readme_names_the_current_version():
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     named = set(re.findall(r"\bv(\d+\.\d+\.\d+)\b", PACKAGE_README.read_text()))
     assert named == {version}
+
+
+def test_images_are_found_in_markdown_and_in_img_tags():
+    """Images shown either way are found, in order."""
+    markdown = '![A plot](images/a.png)\n\n<img src="images/b.png" width="500" alt="Another">\n'
+    assert images_shown(markdown) == ["images/a.png", "images/b.png"]
