@@ -11,6 +11,7 @@ import importlib
 import importlib.util
 import io
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,22 @@ _IMAGE_LINK = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
 def readme_of(subpackage):
     """Return the path of a subpackage's README."""
     return PACKAGE_DIR / subpackage / "README.md"
+
+
+# The package's README and every subpackage's
+ALL_READMES = [PACKAGE_README] + [readme_of(name) for name in SUBPACKAGES]
+
+# A link to a section of a README: [text](path/README.md#anchor), capturing the path and the anchor
+_SECTION_LINK = re.compile(r"\]\(([^)#\s]*README\.md)#([^)\s]+)\)")
+
+
+def heading_anchors(markdown):
+    """Return the anchors GitHub gives the headings in ``markdown``: lowercase, punctuation dropped, spaces to -.
+
+    (Underscores and hyphens are kept; backticks and other punctuation are dropped.)
+    """
+    headings = re.findall(r"^#+ (.+)$", markdown, re.MULTILINE)
+    return {re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-") for heading in headings}
 
 
 def examples_text(markdown):
@@ -107,9 +124,7 @@ def test_subpackage_readme_links_back_to_the_package_readme(subpackage):
     assert any((readme_of(subpackage).parent / link).resolve() == PACKAGE_README for link in links)
 
 
-@pytest.mark.parametrize(
-    "path", [PACKAGE_README] + [readme_of(name) for name in SUBPACKAGES], ids=lambda p: p.parent.name
-)
+@pytest.mark.parametrize("path", ALL_READMES, ids=lambda p: p.parent.name)
 def test_readme_examples_give_the_output_shown(path):
     """Every example in the README runs and gives the output it shows."""
     # plots in the examples are drawn without a display (matplotlib is imported here, not at the top, so that the
@@ -137,12 +152,11 @@ def test_a_wrong_output_is_reported(tmp_path):
     assert (failures, tries) == (1, 1) and "Expected:" in report
 
 
-@pytest.mark.parametrize("subpackage", SUBPACKAGES)
-def test_every_image_shown_exists(subpackage):
-    """Every image a subpackage's README shows is a file in the repository, by its path relative to the README."""
-    readme = readme_of(subpackage)
+@pytest.mark.parametrize("readme", ALL_READMES, ids=lambda path: path.parent.name)
+def test_every_image_shown_exists(readme):
+    """Every image a README shows is a file in the repository, by its path relative to the README."""
     missing = [link for link in _IMAGE_LINK.findall(readme.read_text()) if not (readme.parent / link).is_file()]
-    assert not missing, f"{subpackage}'s README shows images that don't exist: {missing}"
+    assert not missing, f"{readme} shows images that don't exist: {missing}"
 
 
 @pytest.mark.parametrize("subpackage", SUBPACKAGES)
@@ -172,3 +186,27 @@ def test_a_block_without_an_image_is_not_an_image_example(tmp_path):
     readme.write_text("```python\nnot drawn\n```\n\nText.\n\n```python\nx = 1\n```\n\n![A plot](images/plot.png)\n")
     examples = images_script().image_examples(readme)
     assert [(example.code, example.image_name) for example in examples] == [("x = 1\n", "plot.png")]
+
+
+@pytest.mark.parametrize("readme", ALL_READMES, ids=lambda path: path.parent.name)
+def test_links_to_sections_lead_to_headings(readme):
+    """Every link to a section of a README names a heading that exists in that README."""
+    broken = [
+        f"{path}#{anchor}"
+        for path, anchor in _SECTION_LINK.findall(readme.read_text())
+        if anchor not in heading_anchors((readme.parent / path).read_text())
+    ]
+    assert not broken, f"{readme} links to sections that don't exist: {broken}"
+
+
+def test_heading_anchors_follow_githubs_rules():
+    """Headings become anchors as GitHub makes them, including code names in backticks."""
+    markdown = "# A grid of plots\n\n### `merge_with_preferences`\n\n## Scope and stability\n"
+    assert heading_anchors(markdown) == {"a-grid-of-plots", "merge_with_preferences", "scope-and-stability"}
+
+
+def test_the_package_readme_names_the_current_version():
+    """Every version the package README names (e.g. in its install commands) is the one in pyproject.toml."""
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    named = set(re.findall(r"\bv(\d+\.\d+\.\d+)\b", PACKAGE_README.read_text()))
+    assert named == {version}
