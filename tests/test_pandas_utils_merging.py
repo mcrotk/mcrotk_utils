@@ -26,7 +26,7 @@ def categories(series):
 # --- merge_with_preferences ---
 
 
-def reference_merge_with_preferences(df1, df2, how, preference_left, preference_right):
+def reference_merge_with_preferences(df1, df2, how, preference_left, preference_right, other_if_missing=True):
     """A direct implementation of merge_with_preferences (np.where on the indicator), without renames or dates."""
     suffixes = ("_left", "_right")
     preferred = {"left": "left", "right": "right"}
@@ -35,11 +35,10 @@ def reference_merge_with_preferences(df1, df2, how, preference_left, preference_
     mdf = df1.merge(df2, how=how, left_index=True, right_index=True, indicator=True, suffixes=suffixes)
     for pref in ["left", "right"]:
         for col in pref_list[pref]:
-            mdf[col] = np.where(
-                mdf["_merge"] == f"{other[pref]}_only",
-                mdf[f"{col}_{other[pref]}"],
-                mdf[f"{col}_{preferred[pref]}"],
-            )
+            take_other = mdf["_merge"] == f"{other[pref]}_only"
+            if other_if_missing:
+                take_other |= mdf[f"{col}_{preferred[pref]}"].isna()
+            mdf[col] = np.where(take_other, mdf[f"{col}_{other[pref]}"], mdf[f"{col}_{preferred[pref]}"])
     return mdf.drop(
         columns=["_merge"]
         + [
@@ -82,12 +81,51 @@ def test_merge_how(how, index):
     assert result.index.tolist() == index
 
 
-def test_merge_takes_preferred_value_even_when_missing():
-    """A row in both takes the preferred value even when it's missing, rather than the other side's."""
+def test_merge_fills_a_missing_preferred_value_from_the_other_side():
+    """By default, a row in both whose preferred value is missing takes the other side's value."""
     df1, df2 = left_and_right()
     df1.loc[2, "p"] = np.nan
+    df2.loc[2, "q"] = np.nan
+    result = merge_with_preferences(df1, df2, "outer", preference_left=["p"], preference_right=["q"])
+    assert result["p"].tolist() == [10.0, 200.0, 300.0]
+    assert result["q"].tolist() == [11.0, 21.0, 301.0]
+
+
+def test_merge_leaves_a_value_missing_on_both_sides_missing():
+    """When both sides' values are missing, the result is missing either way."""
+    df1, df2 = left_and_right()
+    df1.loc[2, "p"] = np.nan
+    df2.loc[2, "p"] = np.nan
     result = merge_with_preferences(df1, df2, "outer", preference_left=["p"])
     assert result["p"].isna().tolist() == [False, True, False]
+
+
+def test_merge_without_other_if_missing_takes_preferred_value_even_when_missing():
+    """With other_if_missing=False, a row in both keeps the preferred side's value even when it's missing."""
+    df1, df2 = left_and_right()
+    df1.loc[2, "p"] = np.nan
+    result = merge_with_preferences(df1, df2, "outer", preference_left=["p"], other_if_missing=False)
+    assert result["p"].isna().tolist() == [False, True, False]
+
+
+@pytest.mark.parametrize(
+    ("values", "others"),
+    [
+        (pd.array(["a", None], dtype=object), pd.array(["z", "y"], dtype=object)),
+        (pd.array([1, pd.NA], dtype="Int64"), pd.array([20, 30], dtype="Int64")),
+        (
+            pd.to_datetime(pd.Series(["2026-01-01", None])).array,
+            pd.to_datetime(pd.Series(["2027-01-01", "2027-01-02"])).array,
+        ),
+    ],
+    ids=["None in objects", "NA in nullable integers", "NaT in datetimes"],
+)
+def test_merge_fills_missing_values_of_any_kind(values, others):
+    """None, pd.NA and NaT count as missing too, and are filled from the other side."""
+    df1 = pd.DataFrame({"c": values}, index=[1, 2])
+    df2 = pd.DataFrame({"c": others}, index=[2, 3])
+    result = merge_with_preferences(df1, df2, "outer", preference_left=["c"])
+    assert result["c"].tolist() == [values[0], others[0], others[1]]
 
 
 def test_merge_without_preferences_is_plain_merge():
@@ -97,21 +135,29 @@ def test_merge_without_preferences_is_plain_merge():
     pd.testing.assert_frame_equal(merge_with_preferences(df1, df2, "outer"), expected)
 
 
-def test_merge_matches_reference_on_random_cases():
-    """On random numeric DataFrames, the result is the reference implementation's."""
+@pytest.mark.parametrize("other_if_missing", [True, False])
+def test_merge_matches_reference_on_random_cases(other_if_missing):
+    """On random numeric DataFrames with missing values, the result is the reference implementation's."""
     rng = np.random.default_rng(20261114)
     for _ in range(200):
         dfs = []
         for _ in range(2):
             index = np.sort(rng.choice(8, size=int(rng.integers(1, 8)), replace=False))
-            columns = {name: rng.normal(size=len(index)) for name in ["p", "q", "r"]}
+            # about a quarter of the values missing, so filling from the other side is exercised
+            columns = {
+                name: np.where(rng.random(len(index)) < 0.25, np.nan, rng.normal(size=len(index)))
+                for name in ["p", "q", "r"]
+            }
             dfs.append(pd.DataFrame(columns, index=index))
         how = HOWS[int(rng.integers(len(HOWS)))]
         left, right = list(rng.permutation(["p", "q", "r"])[: rng.integers(0, 4)]), []
         if left and rng.integers(2):
             right = [left.pop()]
         args = (dfs[0], dfs[1], how, left, right)
-        pd.testing.assert_frame_equal(merge_with_preferences(*args), reference_merge_with_preferences(*args))
+        pd.testing.assert_frame_equal(
+            merge_with_preferences(*args, other_if_missing=other_if_missing),
+            reference_merge_with_preferences(*args, other_if_missing=other_if_missing),
+        )
 
 
 def test_merge_keeps_categorical_with_different_categories():
@@ -175,10 +221,21 @@ def test_merge_datetime_column_missing_raises():
 
 
 def test_merge_preferred_column_missing_from_one_side():
-    """A preferred column one side lacks is all missing there, with a warning."""
+    """A preferred column one side lacks is all missing there, with a warning, so it's filled from the other side."""
     df1, df2 = left_and_right()
     with pytest.warns(UserWarning, match="'y' not found"):
         result = merge_with_preferences(df1, df2, "outer", preference_right=["y"])
+    # the row in both takes the left's value, since the preferred (right) side has none; the row only on the right
+    # has none either way
+    assert result["y"].tolist()[:2] == ["l1", "l2"]
+    assert result["y"].isna().tolist() == [False, False, True]
+
+
+def test_merge_preferred_column_missing_from_one_side_without_filling():
+    """With other_if_missing=False, rows in both take the preferred side's missing values."""
+    df1, df2 = left_and_right()
+    with pytest.warns(UserWarning, match="'y' not found"):
+        result = merge_with_preferences(df1, df2, "outer", preference_right=["y"], other_if_missing=False)
     # rows in the right take its (missing) value; the row only on the left keeps the left's
     assert result["y"].tolist()[0] == "l1"
     assert result["y"].isna().tolist() == [False, True, True]

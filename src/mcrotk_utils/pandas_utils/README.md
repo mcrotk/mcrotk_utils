@@ -27,7 +27,7 @@ These set the types of columns.
 These do what `pd.concat` and `pd.merge` do, while keeping dtypes and combining columns.
 
 - `combine_dataframes`: concatenate DataFrames, keeping a categorical column categorical when its categories differ between them (`pd.concat` makes it a plain column).
-- `merge_with_preferences`: merge two DataFrames on their indexes, combining chosen columns that both have into one, with the values from a preferred side.
+- `merge_with_preferences`: merge two DataFrames on their indexes, combining chosen columns that both have into one, with the values from a preferred side, and by default from the other side where the preferred side's value is missing.
 
 ### Adding columns
 
@@ -80,7 +80,7 @@ Results from separate runs often have categorical columns with different categor
 
 ### `merge_with_preferences`
 
-Here a product catalog and a price feed overlap in some products, and both have names and prices. The catalog's names are the ones to keep, but the feed's prices are newer:
+Here a product catalog and a price feed overlap in some products, and both have names and prices. The catalog's names are the ones to keep, but the feed's prices are newer, though the feed has no price for cherries:
 
 ```pycon
 >>> catalog = pd.DataFrame(
@@ -93,13 +93,13 @@ Here a product catalog and a price feed overlap in some products, and both have 
 2  Banana    A1    0.5
 3  Cherry    B2    3.0
 >>> feed = pd.DataFrame(
-...     {"name": ["banana", "cherry", "date"], "price": [0.60, 3.50, 2.00], "supplier": ["Ross", "Ross", "Vale"]},
+...     {"name": ["banana", "cherry", "date"], "price": [0.60, None, 2.00], "supplier": ["Ross", "Ross", "Vale"]},
 ...     index=[2, 3, 4],
 ... )
 >>> feed
      name  price supplier
 2  banana    0.6     Ross
-3  cherry    3.5     Ross
+3  cherry    NaN     Ross
 4    date    2.0     Vale
 ```
 
@@ -110,19 +110,26 @@ A plain merge keeps both versions of each shared column, leaving them to be comb
    name_x aisle  price_x  name_y  price_y supplier
 1   Apple    A1      1.0     NaN      NaN      NaN
 2  Banana    A1      0.5  banana      0.6     Ross
-3  Cherry    B2      3.0  cherry      3.5     Ross
+3  Cherry    B2      3.0  cherry      NaN     Ross
 4     NaN   NaN      NaN    date      2.0     Vale
 ```
 
-`merge_with_preferences` combines them in one call: each product in both takes the catalog's name and the feed's price, and each product in only one takes what that one has. The combined columns come after the others:
+`merge_with_preferences` combines them in one call: each product in both takes the catalog's name and the feed's price, except that the cherries, with no price in the feed, take the catalog's. Each product in only one takes what that one has. The combined columns come after the others:
 
 ```pycon
 >>> merge_with_preferences(catalog, feed, "outer", preference_left=["name"], preference_right=["price"])
   aisle supplier    name  price
 1    A1      NaN   Apple    1.0
 2    A1     Ross  Banana    0.6
-3    B2     Ross  Cherry    3.5
+3    B2     Ross  Cherry    3.0
 4   NaN     Vale    date    2.0
+```
+
+With `other_if_missing=False`, a missing value on the preferred side is kept instead, so the cherries would have no price:
+
+```pycon
+>>> merge_with_preferences(catalog, feed, "outer", preference_right=["price"], other_if_missing=False)["price"].tolist()
+[1.0, 0.6, nan, 2.0]
 ```
 
 It also keeps the combined columns' dtypes where both DataFrames share them, including categoricals (with both sides' categories), and can rename columns and convert date columns first; see its docstring.

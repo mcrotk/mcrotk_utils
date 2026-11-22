@@ -25,11 +25,14 @@ def merge_with_preferences(
     rename_left: Mapping[str, str] | None = None,
     rename_right: Mapping[str, str] | None = None,
     datetime_cols: str | Iterable[str] = (),
+    *,
+    other_if_missing: bool = True,
 ) -> pd.DataFrame:
     """Merge two DataFrames on their indexes, combining chosen columns that both have into one.
 
     For a column in ``preference_left``, rows in both DataFrames, and rows only in ``df1``, take ``df1``'s
-    value; rows only in ``df2`` take ``df2``'s. ``preference_right`` is the same the other way around.
+    value; rows only in ``df2`` take ``df2``'s. ``preference_right`` is the same the other way around. By default,
+    a row in both whose preferred value is missing takes the other side's value instead.
 
     **Arguments.**
 
@@ -42,12 +45,14 @@ def merge_with_preferences(
       preference lists use the new names).
     - ``datetime_cols``: columns converted with ``pd.to_datetime`` in both DataFrames first, e.g. dates read
       as strings in one and as dates in the other.
+    - ``other_if_missing``: if true (the default), a row in both DataFrames whose preferred value is missing
+      takes the other side's value (which may be missing too); if false, it keeps the preferred side's missing
+      value.
 
     **Result.**
 
     - A new DataFrame; the inputs aren't changed.
-    - Each preferred column appears once, under its own name, after the other columns. A row in both
-      DataFrames takes the preferred value even when it's missing.
+    - Each preferred column appears once, under its own name, after the other columns.
     - Preferred columns keep their dtype when it's the same in both DataFrames, including categorical (with
       the categories of both), timezone-aware and nullable dtypes. (Rows that a DataFrame lacks have missing
       values, so e.g. integers can become floats, as in ``pd.merge``.)
@@ -75,9 +80,9 @@ def merge_with_preferences(
     indicator = _unused_column_name("_merge", left, right)
     merged = left.merge(right, how=how, left_index=True, right_index=True, indicator=indicator, suffixes=_SUFFIXES)
     for column in preference_left:
-        merged[column] = _preferred_values(merged, column, "left", indicator)
+        merged[column] = _preferred_values(merged, column, "left", indicator, other_if_missing=other_if_missing)
     for column in preference_right:
-        merged[column] = _preferred_values(merged, column, "right", indicator)
+        merged[column] = _preferred_values(merged, column, "right", indicator, other_if_missing=other_if_missing)
     return merged.drop(columns=[indicator] + [column + suffix for column in preferred for suffix in _SUFFIXES])
 
 
@@ -108,14 +113,20 @@ def _unused_column_name(name: str, *dfs: pd.DataFrame) -> str:
 
 
 def _preferred_values(
-    merged: pd.DataFrame, column: str, preferred: Literal["left", "right"], indicator: str
+    merged: pd.DataFrame, column: str, preferred: Literal["left", "right"], indicator: str, *, other_if_missing: bool
 ) -> pd.Series:
-    """Return the combined values of ``column``: the preferred side's, except in rows only the other side has."""
+    """Return the combined values of ``column``: the preferred side's, except in rows only the other side has.
+
+    With ``other_if_missing``, also the other side's where the preferred side's value is missing.
+    """
     other = "right" if preferred == "left" else "left"
     preferred_values, other_values = _with_common_categories(
         merged[f"{column}_{preferred}"], merged[f"{column}_{other}"]
     )
-    return preferred_values.where(merged[indicator] != f"{other}_only", other_values)
+    take_other = merged[indicator] == f"{other}_only"
+    if other_if_missing:
+        take_other |= preferred_values.isna()
+    return preferred_values.where(~take_other, other_values)
 
 
 def _with_common_categories(first: pd.Series, second: pd.Series) -> tuple[pd.Series, pd.Series]:
