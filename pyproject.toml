@@ -1,0 +1,84 @@
+[project]
+name = "mcrotk-utils"
+version = "0.6.0"
+description = "Utilities for general Python, NumPy, pandas, sparse matrices, statistics and plotting, one module per topic."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Michael C. Rotkowitz", email = "mcrotk@gmail.com" }
+]
+requires-python = ">=3.12"
+# No required dependencies: each module's dependencies come with its extra, so a project installs only what it uses
+dependencies = []
+
+[project.optional-dependencies]
+matplotlib = [
+    # first matplotlib release with Python 3.12 wheels (matplotlib brings numpy)
+    "matplotlib>=3.7.3",
+]
+numpy = [
+    # first numpy release with Python 3.12 wheels
+    "numpy>=1.26.0",
+]
+pandas = [
+    # first pandas release with Python 3.12 wheels
+    "pandas>=2.1.1",
+]
+scipy = [
+    # first scipy release with a usable sparse-array API: stacking returns sparse arrays (not
+    # matrices), block_array, diags_array and eye_array exist (from 1.12.0), and DOK arrays can be
+    # stacked (1.12 raised NotImplementedError) (scipy brings numpy)
+    "scipy>=1.13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mcrotk/mcrotk_utils"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# The subpackages' READMEs and their images are documentation for browsing the repository, not package data
+wheel-exclude = ["**/README.md", "**/images"]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.2",
+    "mypy",
+    "numpy",
+    "pandas",
+    "pandas-stubs",
+    "pathos>=0.3.5",
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+    "scipy>=1.18.1",
+    "scipy-stubs>=1.18.1.1",
+    "seaborn>=0.13.2",
+    "types-seaborn",
+    "statsmodels>=0.15.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import sorting, pyupgrade, bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.mypy]
+files = ["src", "tests", "scripts"]
+python_version = "3.12"
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
