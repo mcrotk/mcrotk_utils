@@ -56,7 +56,7 @@ uv writes these for you: `uv add "mcrotk-utils[numpy] @ git+https://github.com/m
 
 ## License
 
-MIT; see [`LICENSE`](LICENSE).
+Released under the MIT License; see [LICENSE](LICENSE) for the full text.
 
 ## Development
 
